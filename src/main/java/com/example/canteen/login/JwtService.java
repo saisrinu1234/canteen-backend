@@ -52,4 +52,16 @@ public class JwtService {
             return false;
         }
     }
+
+    public long getRemainingTime(String token) {
+
+        Date expiration = Jwts.parserBuilder()
+                .setSigningKey(SECRET.getBytes())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+
+        return expiration.getTime() - System.currentTimeMillis();
+    }
 }

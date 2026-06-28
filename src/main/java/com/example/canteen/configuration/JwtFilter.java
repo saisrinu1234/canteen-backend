@@ -1,6 +1,8 @@
 package com.example.canteen.configuration;
 
 import com.example.canteen.login.JwtService;
+import com.example.canteen.login.TokenBlacklistService;
+
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtService jwtService;
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -32,6 +36,14 @@ public class JwtFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
 
             String token = header.substring(7);
+
+            if (tokenBlacklistService.isBlacklisted(token)) {
+
+                response.setStatus(401);
+                response.getWriter().write("Token revoked");
+
+                return;
+            }
 
             if (jwtService.validateToken(token)) {
 

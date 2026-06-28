@@ -3,6 +3,8 @@ package com.example.canteen.menu;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.Base64;
 import java.util.HashMap;
@@ -24,6 +26,7 @@ public class MenuController {
         this.menuRepository = menuRepository;
     }
 
+    @CacheEvict(value = "menu", allEntries = true)
     @PostMapping("/admin/add")
     public ResponseEntity<?> addMenuItem(
             @RequestParam String name,
@@ -49,6 +52,7 @@ public class MenuController {
         }
     }
 
+    @Cacheable("menu")
     @GetMapping("/all")
     public List<Map<String, Object>> getAll() {
         return service.getAll().stream().map(item -> {
@@ -73,6 +77,7 @@ public class MenuController {
         }).toList();
     }
 
+    @CacheEvict(value = "menu", allEntries = true)
     @DeleteMapping("/admin/delete/{id}")
     public ResponseEntity<?> deleteItem(@PathVariable UUID id) {
 

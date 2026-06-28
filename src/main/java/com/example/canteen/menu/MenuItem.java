@@ -17,7 +17,7 @@ public class MenuItem {
 
     // ✅ Image stored in DB
     @Lob
-    @Column(name = "image")
+    @Column(columnDefinition = "LONGBLOB")
     private byte[] image;
     // Getters & Setters
 

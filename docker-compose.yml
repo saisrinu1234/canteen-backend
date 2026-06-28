@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: canteen-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Srinu@143
+      MYSQL_DATABASE: canteen
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:latest
+    container_name: canteen-redis
+    ports:
+      - "6379:6379"
+
+  app:
+    image: canteen-app
+    container_name: canteen-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+
+volumes:
+  mysql-data:

@@ -2,10 +2,8 @@ package com.example.canteen.login;
 
 import java.util.Optional;
 
-import org.hibernate.action.internal.OrphanRemovalAction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -19,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @CrossOrigin("http://localhost:5173")
@@ -40,6 +39,8 @@ public class AuthController {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User1 user) {
@@ -104,16 +105,44 @@ public class AuthController {
     }
 
     // LOGOUT
+    // @PostMapping("/logout")
+    // public ResponseEntity<?> logout(@CookieValue("refreshToken") String token,
+    // HttpServletResponse response) {
+
+    // refreshTokenRepository.findByToken(token)
+    // .ifPresent(refreshTokenRepository::delete);
+
+    // Cookie cookie = new Cookie("refreshToken", null);
+    // cookie.setMaxAge(0);
+    // cookie.setPath("/");
+    // response.addCookie(cookie);
+
+    // return ResponseEntity.ok("Logged out successfully");
+    // }
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@CookieValue("refreshToken") String token,
+    public ResponseEntity<?> logout(
+            HttpServletRequest request,
+            @CookieValue("refreshToken") String refreshToken,
             HttpServletResponse response) {
 
-        refreshTokenRepository.findByToken(token)
+        String header = request.getHeader("Authorization");
+
+        if (header != null && header.startsWith("Bearer ")) {
+
+            String accessToken = header.substring(7);
+
+            long ttl = jwtService.getRemainingTime(accessToken);
+
+            tokenBlacklistService.blacklistToken(accessToken, ttl);
+        }
+
+        refreshTokenRepository.findByToken(refreshToken)
                 .ifPresent(refreshTokenRepository::delete);
 
         Cookie cookie = new Cookie("refreshToken", null);
-        cookie.setMaxAge(0);
         cookie.setPath("/");
+        cookie.setMaxAge(0);
+
         response.addCookie(cookie);
 
         return ResponseEntity.ok("Logged out successfully");
