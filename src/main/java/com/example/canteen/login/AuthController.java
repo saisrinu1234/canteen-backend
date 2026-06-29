@@ -20,7 +20,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-@CrossOrigin("http://localhost:5173")
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
