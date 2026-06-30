@@ -62,7 +62,7 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("https://canteen-ui-five.vercel.app"));
+        configuration.setAllowedOrigins(List.of("https://canteen-ui-lilac.vercel.app"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true); // 🔥 REQUIRED for cookies
