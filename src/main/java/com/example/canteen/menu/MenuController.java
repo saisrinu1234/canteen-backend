@@ -3,6 +3,8 @@ package com.example.canteen.menu;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 
@@ -87,5 +89,19 @@ public class MenuController {
 
         menuRepository.deleteById(id);
         return ResponseEntity.ok("Item deleted successfully");
+    }
+
+    @CacheEvict(value = "menu", allEntries = true)
+    @PutMapping("/admin/availability/{id}")
+    public ResponseEntity<?> updateAvailability(@PathVariable UUID id) {
+
+        MenuItem menu = menuRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Item not found"));
+
+        menu.setAvailable(!menu.isAvailable()); // Toggle
+
+        menuRepository.save(menu);
+
+        return ResponseEntity.ok(menu);
     }
 }

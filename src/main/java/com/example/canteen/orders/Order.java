@@ -1,9 +1,9 @@
 package com.example.canteen.orders;
 
 import jakarta.persistence.*;
-import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "orders")
@@ -12,7 +12,6 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long order_id;
-
     private String userEmail;
     private double totalAmount;
     private boolean served = false;
@@ -21,6 +20,21 @@ public class Order {
     private List<OrderItem> items;
     @Column(nullable = false)
     private String paymentStatus = "PENDING";
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 
     public String getPaymentStatus() {
         return paymentStatus;
