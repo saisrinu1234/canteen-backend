@@ -4,11 +4,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 
-import java.util.Base64;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,9 +25,14 @@ public class MenuController {
 
     private final MenuService service;
 
-    public MenuController(MenuService service, MenuRepository menuRepository) {
+    private final Cloudinary cloudinary;
+
+    public MenuController(MenuService service,
+            MenuRepository menuRepository,
+            Cloudinary cloudinary) {
         this.service = service;
         this.menuRepository = menuRepository;
+        this.cloudinary = cloudinary;
     }
 
     @CacheEvict(value = "menu", allEntries = true)
@@ -37,20 +44,38 @@ public class MenuController {
             @RequestParam MultipartFile image) {
 
         try {
+
             if (menuRepository.existsByName(name)) {
-                return ResponseEntity.ok("Item already Exists ");
+                return ResponseEntity.ok("Item already Exists");
             }
+            // 2 MB = 2 * 1024 * 1024 bytes
+            long maxSize = 5 * 1024 * 1024;
+
+            if (image.getSize() > maxSize) {
+                return ResponseEntity.badRequest()
+                        .body("Image size must be less than 5 MB");
+            }
+
+            Map uploadResult = cloudinary.uploader().upload(
+                    image.getBytes(),
+                    ObjectUtils.emptyMap());
+
+            String imageUrl = uploadResult.get("secure_url").toString();
+            String publicId = uploadResult.get("public_id").toString();
+
             MenuItem item = new MenuItem();
             item.setName(name);
             item.setDescription(description);
             item.setPrice(price);
-            item.setImage(image.getBytes()); // ✅ store image
+            item.setImageUrl(imageUrl);
+            item.setPublicId(publicId);
 
             menuRepository.save(item);
 
             return ResponseEntity.ok("Item added successfully");
+
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error saving item");
+            return ResponseEntity.status(500).body(e.getMessage());
         }
     }
 
@@ -67,13 +92,7 @@ public class MenuController {
             map.put("available", item.isAvailable());
 
             // ✅ Convert image to Base64
-            if (item.getImage() != null) {
-                String base64 = Base64.getEncoder()
-                        .encodeToString(item.getImage());
-                map.put("image", base64);
-            } else {
-                map.put("image", null);
-            }
+            map.put("imageUrl", item.getImageUrl());
 
             return map;
         }).toList();
@@ -83,12 +102,22 @@ public class MenuController {
     @DeleteMapping("/admin/delete/{id}")
     public ResponseEntity<?> deleteItem(@PathVariable UUID id) {
 
-        if (!menuRepository.existsById(id)) {
-            return ResponseEntity.status(404).body("Item not found");
-        }
+        try {
+            MenuItem item = menuRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        menuRepository.deleteById(id);
-        return ResponseEntity.ok("Item deleted successfully");
+            cloudinary.uploader().destroy(
+                    item.getPublicId(),
+                    ObjectUtils.emptyMap());
+
+            menuRepository.delete(item);
+
+            return ResponseEntity.ok("Item deleted successfully");
+
+        } catch (IOException e) {
+            return ResponseEntity.status(500)
+                    .body("Failed to delete image from Cloudinary");
+        }
     }
 
     @CacheEvict(value = "menu", allEntries = true)

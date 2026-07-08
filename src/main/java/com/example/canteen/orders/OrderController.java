@@ -26,18 +26,16 @@ public class OrderController {
 
     // ✅ Place Order
     @PostMapping("/place")
-    public ResponseEntity<Order> placeOrder(
+    public ResponseEntity<?> placeOrder(
             @RequestBody Order order,
             Principal principal) {
 
-        // 🔐 Get logged-in user email from JWT
-        String email = principal.getName();
-
-        order.setUserEmail(email);
-
-        Order savedOrder = orderService.saveOrder(order);
-
-        return ResponseEntity.ok(savedOrder);
+        try {
+            order.setUserEmail(principal.getName());
+            return ResponseEntity.ok(orderService.saveOrder(order));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @GetMapping("/my/pending")

@@ -15,11 +15,17 @@ public class MenuItem {
     private double price;
     private boolean available = true;
 
-    // ✅ Image stored in DB
-    @Lob
-    @Column
-    private byte[] image;
-    // Getters & Setters
+    @Column(length = 500)
+    private String imageUrl;
+    private String publicId;
+
+    public String getPublicId() {
+        return publicId;
+    }
+
+    public void setPublicId(String publicId) {
+        this.publicId = publicId;
+    }
 
     public UUID getId() {
         return id;
@@ -61,11 +67,11 @@ public class MenuItem {
         this.available = available;
     }
 
-    public byte[] getImage() {
-        return image;
+    public String getImageUrl() {
+        return imageUrl;
     }
 
-    public void setImage(byte[] image) {
-        this.image = image;
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }
