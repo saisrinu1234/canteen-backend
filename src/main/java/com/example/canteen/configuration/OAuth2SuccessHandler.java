@@ -72,7 +72,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         response.sendRedirect(
                 //"http://localhost:5173/oauth-success?token=" +
-                "https://canteen-ui-lilac.vercel.app/oauth-success?token=" +
+                  "https://canteen-ui-lilac.vercel.app/oauth-success?token=" +
                         accessToken +
                         "&role=" +
                         user.getRole() +
