@@ -1,11 +1,14 @@
 package com.example.canteen.login;
 
 public class LoginResponse {
+
     private String token;
+    private String refreshToken;
     private String role;
 
-    public LoginResponse(String token, String role) {
+    public LoginResponse(String token, String refreshToken, String role) {
         this.token = token;
+        this.refreshToken = refreshToken;
         this.role = role;
     }
 
@@ -15,6 +18,14 @@ public class LoginResponse {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 
     public String getRole() {

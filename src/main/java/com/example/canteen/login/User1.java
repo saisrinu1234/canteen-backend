@@ -14,6 +14,7 @@ public class User1 {
     private String email;
     private String phone;
     private String name;
+    @Column(nullable = true)
     private String password;
 
     private String role; // ROLE_USER / ROLE_ADMIN
@@ -76,5 +77,24 @@ public class User1 {
         this.createdAt = createdAt;
     }
 
+    private String provider="LOCAL"; // LOCAL or GOOGLE
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public String getProviderId() {
+        return providerId;
+    }
+
+    public void setProviderId(String providerId) {
+        this.providerId = providerId;
+    }
+
+    private String providerId; // Google user ID
     // getters & setters
 }

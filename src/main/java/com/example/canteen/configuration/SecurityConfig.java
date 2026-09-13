@@ -24,6 +24,8 @@ public class SecurityConfig {
     private JwtFilter jwtFilter;
     @Autowired
     private IpRateLimitFilter ipRateLimitFilter;
+    @Autowired
+    private OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -34,7 +36,17 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/refresh",
+                                "/oauth2/**",
+                                "/login/oauth2/**",
+                                "/auth/public/**",
+                                "/auth/user/existence",
+                                "/auth/forgot-password",
+                                "/auth/reset-password")
+                        .permitAll()
                         .requestMatchers("/menu/all").permitAll()
                         .requestMatchers("/menu/admin/**").hasRole("ADMIN")
                         .requestMatchers("/user/**").hasRole("USER")
@@ -49,6 +61,7 @@ public class SecurityConfig {
         http.addFilterBefore(
                 ipRateLimitFilter,
                 UsernamePasswordAuthenticationFilter.class);
+        http.oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler));
 
         http.addFilterAfter(
                 jwtFilter,
@@ -62,7 +75,7 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("https://canteen-ui-lilac.vercel.app","http://localhost:5173"));
+        configuration.setAllowedOrigins(List.of("https://canteen-ui-lilac.vercel.app", "http://localhost:5173"));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

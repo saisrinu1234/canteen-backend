@@ -8,6 +8,7 @@ import com.example.canteen.orders.Order;
 import com.example.canteen.orders.OrderRepository;
 import com.razorpay.RazorpayClient;
 import com.razorpay.RazorpayException;
+import com.razorpay.Refund;
 import com.razorpay.Utils;
 import org.json.JSONObject;
 
@@ -102,12 +103,10 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByOrder(order)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
-        // Already refunded
         if ("REFUNDED".equals(payment.getPaymentStatus())) {
             throw new RuntimeException("Payment has already been refunded");
         }
 
-        // Payment not successful
         if (!"SUCCESS".equals(payment.getPaymentStatus())) {
             throw new RuntimeException("Only successful payments can be refunded");
         }
@@ -115,15 +114,28 @@ public class PaymentServiceImpl implements PaymentService {
         RazorpayClient client = new RazorpayClient(key, secret);
 
         JSONObject refundRequest = new JSONObject();
-        refundRequest.put("amount", (int) (order.getTotalAmount() * 100));
+        refundRequest.put("amount", (int) Math.round(order.getTotalAmount() * 100));
 
-        client.payments.refund(payment.getPaymentId(), refundRequest);
+        try {
 
-        payment.setPaymentStatus("REFUNDED");
-        order.setPaymentStatus("REFUNDED");
+            Refund refund = client.payments.refund(payment.getPaymentId(), refundRequest);
 
-        paymentRepository.save(payment);
-        orderRepository.save(order);
+            // Update DB only after successful refund
+            payment.setPaymentStatus("REFUNDED");
+            order.setPaymentStatus("REFUNDED");
+
+            paymentRepository.save(payment);
+            orderRepository.save(order);
+
+            System.out.println("Refund Success: " + refund.toString());
+
+        } catch (RazorpayException e) {
+
+            System.out.println("Refund Failed: " + e.getMessage());
+
+            // Don't update DB
+            throw e;
+        }
     }
 
 }

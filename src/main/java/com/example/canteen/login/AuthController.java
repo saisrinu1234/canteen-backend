@@ -1,5 +1,6 @@
 package com.example.canteen.login;
 
+import java.security.Principal;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,14 +8,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.canteen.login.passwordReset.ForgotPasswordRequest;
+import com.example.canteen.login.passwordReset.PasswordResetService;
+import com.example.canteen.login.passwordReset.ResetPasswordRequest;
+import com.example.canteen.mailing.ApiResponse;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,22 +29,25 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/auth")
 public class AuthController {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final PasswordResetService passwordResetService; // Constructor Injection public
 
-    @Autowired
-    private JwtService jwtService;
-
-    @Autowired
-    private RefreshTokenService refreshTokenService;
-
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private TokenBlacklistService tokenBlacklistService;
+    AuthController(UserRepository userRepository, JwtService jwtService, RefreshTokenService refreshTokenService,
+            RefreshTokenRepository refreshTokenRepository, PasswordEncoder passwordEncoder,
+            TokenBlacklistService tokenBlacklistService, PasswordResetService passwordResetService) {
+        this.userRepository = userRepository;
+        this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.tokenBlacklistService = tokenBlacklistService;
+        this.passwordResetService = passwordResetService;
+    }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User1 user) {
@@ -69,12 +77,12 @@ public class AuthController {
         Optional<User1> optionaluser = userRepository.findByEmail(request.getEmail());
 
         if (optionaluser.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User Not Found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Invalid UserName or Password");
         }
 
         User1 user = optionaluser.get(); // ✔ now safe
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Invalid UserName or Password");
         }
 
         String accessToken = jwtService.generateAccessToken(user);
@@ -85,8 +93,13 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(7 * 24 * 60 * 60);
         response.addCookie(cookie);
-        LoginResponse responseBody = new LoginResponse(accessToken, user.getRole());
+        LoginResponse responseBody = new LoginResponse(accessToken, refreshToken.getToken(), user.getRole());
         return ResponseEntity.ok(responseBody);
+    }
+
+    @GetMapping("/user/existence")
+    public ResponseEntity<Boolean> userExists(@RequestParam String email) {
+        return ResponseEntity.ok(userRepository.existsByEmail(email));
     }
 
     // REFRESH
@@ -103,21 +116,50 @@ public class AuthController {
         return ResponseEntity.ok(accessToken);
     }
 
-    // LOGOUT
-    // @PostMapping("/logout")
-    // public ResponseEntity<?> logout(@CookieValue("refreshToken") String token,
-    // HttpServletResponse response) {
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(
+            @RequestBody ForgotPasswordRequest request) {
 
-    // refreshTokenRepository.findByToken(token)
-    // .ifPresent(refreshTokenRepository::delete);
+        try {
 
-    // Cookie cookie = new Cookie("refreshToken", null);
-    // cookie.setMaxAge(0);
-    // cookie.setPath("/");
-    // response.addCookie(cookie);
+            passwordResetService.forgotPassword(
+                    request.getEmail());
 
-    // return ResponseEntity.ok("Logged out successfully");
-    // }
+            return ResponseEntity.ok(
+                    "Password reset link sent to your email");
+
+        } catch (RuntimeException e) {
+
+            return ResponseEntity.badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+
+            return ResponseEntity.internalServerError()
+                    .body("Something went wrong");
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(
+            @RequestBody ResetPasswordRequest request) {
+
+        try {
+
+            passwordResetService.resetPassword(
+                    request.getToken(),
+                    request.getPassword());
+
+            return ResponseEntity.ok(
+                    "Password reset successfully");
+
+        } catch (Exception e) {
+
+            return ResponseEntity.badRequest()
+                    .body(e.getMessage());
+        }
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout(
             HttpServletRequest request,
@@ -147,9 +189,9 @@ public class AuthController {
         return ResponseEntity.ok("Logged out successfully");
     }
 
-    @GetMapping("/get/{email}")
-    public ResponseEntity<?> getUserByEmail(@PathVariable String email) {
-        Optional<User1> user = userRepository.findByEmail(email);
+    @GetMapping("/get/profile")
+    public ResponseEntity<?> getUserByEmail(Principal principal) {
+        Optional<User1> user = userRepository.findByEmail(principal.getName());
         if (user.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User Not Found");
         User1 userDetails = user.get();
@@ -157,12 +199,12 @@ public class AuthController {
 
     }
 
-    @PutMapping("/update/{email}")
+    @PutMapping("/update/profile")
     public ResponseEntity<?> updateUser(
-            @PathVariable String email,
+            Principal principal,
             @RequestBody User1 updatedUser) {
 
-        Optional<User1> optionalUser = userRepository.findByEmail(email);
+        Optional<User1> optionalUser = userRepository.findByEmail(principal.getName());
 
         if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
