@@ -55,7 +55,7 @@ public class PasswordResetService {
 
                 tokenRepository.save(resetToken);
 
-                String resetLink = "http://localhost:5173/reset-password?token="
+                String resetLink = "https://canteen-ui-lilac.vercel.app/reset-password?token="
                                 + token;
                 try {
                         emailService.sendPasswordResetEmail(
